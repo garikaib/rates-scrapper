@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Database & State
+rates.db
+rates.json
+
+# Deployment & Logs
+rbz-scraper.tar.gz
+*.log
+/deploy_package/
+
+# IDEs
+.vscode/
+.idea/
+
+# System
+.DS_Store
