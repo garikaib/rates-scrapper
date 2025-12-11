@@ -183,14 +183,30 @@ class MongoStorage:
                         zwg = gold_rates.get("zwg")
                         usd = gold_rates.get("usd")
                         
+                    if gold_date == exchange_date:
+                        # Calculate Gold = zwg / usd (Physical Gold)
+                        zwg = gold_rates.get("zwg")
+                        usd = gold_rates.get("usd")
+                        
                         if zwg and usd and usd > 0:
                             gold_value = round(zwg / usd, 4)
                             new_record["Gold"] = gold_value
                             print(f"Updated Gold: {gold_value} (ZWG {zwg} / USD {usd})")
                         else:
                             print("Could not calculate Gold: missing zwg or usd")
+                            
+                        # Calculate eGold = digital_token_zwg / digital_token_usd (Digital Token)
+                        dt_zwg = gold_rates.get("digital_token_zwg")
+                        dt_usd = gold_rates.get("digital_token_usd")
+                        
+                        if dt_zwg and dt_usd and dt_usd > 0:
+                            egold_value = round(dt_zwg / dt_usd, 4)
+                            new_record["eGold"] = egold_value
+                            print(f"Updated eGold: {egold_value} (Digital ZiG {dt_zwg} / USD {dt_usd})")
+                        else:
+                            print("Could not calculate eGold: missing digital token prices")
                     else:
-                        print(f"Gold date ({gold_date}) != Exchange date ({exchange_date}), keeping existing Gold")
+                        print(f"Gold date ({gold_date}) != Exchange date ({exchange_date}), keeping existing Gold/eGold")
             
             # Insert new record
             result = collection.insert_one(new_record)

@@ -170,20 +170,33 @@ class RatesDatabase:
     def save_gold_rates(self, rate_date: date, usd: float = None, zwg: float = None,
                         zar: float = None, gbp: float = None, eur: float = None,
                         bwp: float = None, aud: float = None, pm_fix: float = None,
+                        digital_token_usd: float = None, digital_token_zwg: float = None,
                         source: str = None, source_url: str = None):
         conn = self._get_connection()
         cursor = conn.cursor()
+        
+        # Check if new columns exist, if not add them (migration)
+        try:
+            cursor.execute("SELECT digital_token_usd FROM gold_rates LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE gold_rates ADD COLUMN digital_token_usd REAL")
+            cursor.execute("ALTER TABLE gold_rates ADD COLUMN digital_token_zwg REAL")
+            conn.commit()
+            
         cursor.execute("""
             INSERT INTO gold_rates 
-            (rate_date, usd, zwg, zar, gbp, eur, bwp, aud, pm_fix, source, source_url, scraped_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (rate_date, usd, zwg, zar, gbp, eur, bwp, aud, pm_fix, digital_token_usd, digital_token_zwg, source, source_url, scraped_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(rate_date) DO UPDATE SET
                 usd=excluded.usd, zwg=excluded.zwg, zar=excluded.zar,
                 gbp=excluded.gbp, eur=excluded.eur, bwp=excluded.bwp,
                 aud=excluded.aud, pm_fix=excluded.pm_fix,
+                digital_token_usd=excluded.digital_token_usd,
+                digital_token_zwg=excluded.digital_token_zwg,
                 source=excluded.source, source_url=excluded.source_url,
                 scraped_at=excluded.scraped_at
         """, (rate_date.isoformat(), usd, zwg, zar, gbp, eur, bwp, aud, pm_fix,
+              digital_token_usd, digital_token_zwg,
               source, source_url, datetime.now().isoformat()))
         conn.commit()
         conn.close()
@@ -225,9 +238,13 @@ class RatesDatabase:
     def cache_holidays(self, year: int, holidays: List[Dict]):
         conn = self._get_connection()
         cursor = conn.cursor()
+        
+        # Clear existing holidays for this year to avoid duplicates if re-fetching
+        cursor.execute("DELETE FROM public_holidays WHERE year = ?", (year,))
+        
         for h in holidays:
             cursor.execute("""
-                INSERT OR REPLACE INTO public_holidays 
+                INSERT INTO public_holidays 
                 (holiday_date, year, name, local_name, fetched_at)
                 VALUES (?, ?, ?, ?, ?)
             """, (h['date'], year, h.get('name'), h.get('localName'), datetime.now().isoformat()))
@@ -242,10 +259,23 @@ class RatesDatabase:
         conn.close()
         return [row['holiday_date'] for row in rows]
     
-    def has_holidays_for_year(self, year: int) -> bool:
+    def has_valid_holidays_cache(self, year: int) -> bool:
+        """Check if we have holidays cached for this year and they are less than 7 days old."""
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM public_holidays WHERE year = ? LIMIT 1", (year,))
-        result = cursor.fetchone() is not None
+        # Check if we have any holidays for this year
+        cursor.execute("SELECT fetched_at FROM public_holidays WHERE year = ? LIMIT 1", (year,))
+        row = cursor.fetchone()
         conn.close()
-        return result
+        
+        if not row:
+            return False
+            
+        # Check freshness
+        fetched_at_str = row['fetched_at']
+        try:
+            fetched_at = datetime.fromisoformat(fetched_at_str)
+            age = datetime.now() - fetched_at
+            return age.days < 7
+        except ValueError:
+            return False

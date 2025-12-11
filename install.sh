@@ -50,12 +50,30 @@ fi
 # 1. System Tools (requires root/sudo)
 echo ""
 echo "─── System Tools ───────────────────────────────────────────"
-echo "Updating apt (might ask for password)..."
-$SUDO apt-get update -qq
 
-echo "Installing Python and tools..."
-# Explicitly install python3-venv, python3-pip, and tesseract
-$SUDO apt-get install -y python3 python3-venv python3-pip python3-full tesseract-ocr
+# Helper to check if a package is installed
+is_installed() {
+    dpkg -l "$1" &> /dev/null
+}
+
+PACKAGES_NEEDED=("python3" "python3-venv" "python3-pip" "python3-full" "tesseract-ocr")
+MISSING_PACKAGES=()
+
+for pkg in "${PACKAGES_NEEDED[@]}"; do
+    if ! is_installed "$pkg"; then
+        MISSING_PACKAGES+=("$pkg")
+    fi
+done
+
+if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
+    echo "Updating apt (missing: ${MISSING_PACKAGES[*]} )..."
+    $SUDO apt-get update -qq
+    
+    echo "Installing missing system packages..."
+    $SUDO apt-get install -y "${MISSING_PACKAGES[@]}"
+else
+    echo "System packages already installed (Skipping apt update/install)."
+fi
 
 # 2. Python Virtual Environment
 echo ""
@@ -121,13 +139,20 @@ echo "Installing Playwright browsers..."
 playwright install chromium
 
 echo "Installing Playwright system dependencies (using sudo)..."
-# Use playwright install-deps which handles OS-specific packages (e.g., libasound2t64 on Ubuntu 24.04)
-if [ -n "$SUDO" ]; then
-    $SUDO venv/bin/playwright install-deps chromium
+# Smart check: only try installing deps if we are not in 'quick' mode or if we suspect they are missing.
+# Since checking for every lib is hard, we will rely on a SKIP_DEPS flag or argument.
+
+if [[ "$1" == "--quick" ]]; then
+    echo "Skipping Playwright system deps (Quick mode enabled)"
 else
-    venv/bin/playwright install-deps chromium
+    # Use playwright install-deps which handles OS-specific packages
+    if [ -n "$SUDO" ]; then
+        $SUDO venv/bin/playwright install-deps chromium
+    else
+        venv/bin/playwright install-deps chromium
+    fi
 fi
-echo "  ✓ Playwright dependencies installed"
+echo "  ✓ Playwright dependencies checked"
 
 
 # 4. Systemd Service (Server Only)

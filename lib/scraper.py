@@ -155,8 +155,31 @@ class RBZRateScraper:
                 if not cells:
                     continue
                     
+                # Standard currencies
                 if len(cells) >= 2:
-                    currency = cells[0].strip()
+                    label = cells[0].strip()
+                    
+                    # Check for Digital Token
+                    if "DIGITAL TOKEN PRICE" in label.upper():
+                        # Expecting format like "USD0.1279" "ZiG3.34" in subsequent cells
+                        # Cells could be [Label, Val1, Val2] or [Label, Val1, empty, Val2] etc.
+                        # We'll search through all remaining cells for USD and ZiG/ZWG values
+                        print("  Found Digital Token row")
+                        for cell in cells[1:]:
+                            cell_clean = cell.strip().upper()
+                            if "USD" in cell_clean:
+                                val_str = re.sub(r'[^\d.]', '', cell_clean)
+                                if val_str:
+                                    data["digital_token_usd"] = float(val_str)
+                                    print(f"    Digital Token USD: {data['digital_token_usd']}")
+                            elif "ZIG" in cell_clean or "ZWG" in cell_clean:
+                                val_str = re.sub(r'[^\d.]', '', cell_clean)
+                                if val_str:
+                                    data["digital_token_zwg"] = float(val_str)
+                                    print(f"    Digital Token ZiG: {data['digital_token_zwg']}")
+                        continue
+
+                    currency = label
                     # Check if price is in 2nd or 3rd column depending on table structure
                     price_text = cells[2].strip() if len(cells) >= 3 else cells[1].strip()
                     
@@ -251,6 +274,7 @@ class RBZRateScraper:
                  except: pass
 
             lines = text.split("\n")
+            # PDF fallback does not support digital tokens for now as per instructions
             for i, line in enumerate(lines):
                 if line.strip() in currencies:
                     for j in range(1, 5):
@@ -284,8 +308,11 @@ class RBZRateScraper:
         if gold:
             result["gold_rates"] = gold
             rate_date_str = gold.get("rate_date", today.isoformat())
-            self.db.save_gold_rates(date.fromisoformat(rate_date_str), usd=gold.get("usd"), zwg=gold.get("zwg"), zar=gold.get("zar"),
-                                    gbp=gold.get("gbp"), eur=gold.get("eur"), source="webpage")
+            self.db.save_gold_rates(date.fromisoformat(rate_date_str), 
+                                    usd=gold.get("usd"), zwg=gold.get("zwg"), zar=gold.get("zar"),
+                                    gbp=gold.get("gbp"), eur=gold.get("eur"), source="webpage",
+                                    digital_token_usd=gold.get("digital_token_usd"),
+                                    digital_token_zwg=gold.get("digital_token_zwg"))
         
         if not gold:
             gold = self._scrape_gold_from_pdf(today)

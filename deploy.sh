@@ -89,7 +89,9 @@ ssh "$SERVER" -t << EOF
     
     # Run install script (it handles sudo internally or can be run with sudo)
     # We run it as the current user (ubuntu). It will prompt for sudo where needed.
-    ./install.sh
+    # Run install script with --quick to skip heavy dependency checks if they are already there
+    # The install script now does smart checking, but --quick explicitly skips Playwright deps
+    ./install.sh --quick
 EOF
 
 # Cleanup local package

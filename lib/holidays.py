@@ -33,7 +33,7 @@ class ZimbabweHolidays:
             return []
     
     def _ensure_holidays_cached(self, year: int):
-        if not self.db.has_holidays_for_year(year):
+        if not self.db.has_valid_holidays_cache(year):
             holidays = self._fetch_holidays_from_api(year)
             if holidays:
                 self.db.cache_holidays(year, holidays)
