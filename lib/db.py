@@ -94,9 +94,39 @@ class RatesDatabase:
                 updated_at TIMESTAMP NOT NULL
             )
         """)
+
+        # Daily holiday check tracker (to respect free tier limits)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_holiday_checks (
+                check_date DATE PRIMARY KEY,
+                checked_at TIMESTAMP NOT NULL
+            )
+        """)
         
         conn.commit()
         conn.close()
+
+    # --- Daily Holiday Checks ---
+
+    def mark_holiday_checked(self, check_date: date):
+        """Mark a date as having been queried from the API."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR IGNORE INTO daily_holiday_checks (check_date, checked_at)
+            VALUES (?, ?)
+        """, (check_date.isoformat(), datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+
+    def was_holiday_checked(self, check_date: date) -> bool:
+        """Check if we have already queried the API for this date."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM daily_holiday_checks WHERE check_date = ?", (check_date.isoformat(),))
+        result = cursor.fetchone() is not None
+        conn.close()
+        return result
     
     # --- Credentials ---
     
@@ -244,7 +274,7 @@ class RatesDatabase:
         
         for h in holidays:
             cursor.execute("""
-                INSERT INTO public_holidays 
+                INSERT OR IGNORE INTO public_holidays 
                 (holiday_date, year, name, local_name, fetched_at)
                 VALUES (?, ?, ?, ?, ?)
             """, (h['date'], year, h.get('name'), h.get('localName'), datetime.now().isoformat()))
@@ -279,3 +309,23 @@ class RatesDatabase:
             return age.days < 7
         except ValueError:
             return False
+
+    # --- Latest Rates ---
+
+    def get_latest_exchange_rates(self) -> Optional[Dict]:
+        """Get the most recent exchange rates."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM exchange_rates ORDER BY rate_date DESC LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def get_latest_gold_rates(self) -> Optional[Dict]:
+        """Get the most recent gold rates."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM gold_rates ORDER BY rate_date DESC LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None

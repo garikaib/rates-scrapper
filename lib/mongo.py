@@ -159,7 +159,7 @@ class MongoStorage:
             if latest:
                 # Copy all fields except _id
                 for key, value in latest.items():
-                    if key != "_id":
+                    if key not in ["_id", "createdAt", "updatedAt", "updateAt", "__v"]:
                         new_record[key] = value
             
             # Update Date to exchange rates date (midnight)

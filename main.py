@@ -9,6 +9,7 @@ import getpass
 from lib.scraper import RBZRateScraper
 from lib.mongo import set_mongo_credential, test_mongo_connection
 from lib.db import RatesDatabase
+from lib.cache import RedisCache
 
 
 def verify_setup():
@@ -30,6 +31,13 @@ def run_scraper(force: bool = False):
     scraper.run(force=force)
 
 
+def run_email_test():
+    """Run email test."""
+    from lib.email_notify import EmailNotifier
+    notifier = EmailNotifier()
+    notifier.send_test_email()
+
+
 def main():
     parser = argparse.ArgumentParser(description="RBZ Rates Scraper CLI")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -38,6 +46,9 @@ def main():
     run_parser = subparsers.add_parser("run", help="Run the scraper")
     run_parser.add_argument("--force", "-f", action="store_true", 
                             help="Force scraping even if already scraped today")
+    
+    # Email test
+    subparsers.add_parser("email-test", help="Send a test email with latest rates")
     
     # Mongo commands
     subparsers.add_parser("test-mongo", help="Test MongoDB connection")
@@ -50,10 +61,19 @@ def main():
     
     subparsers.add_parser("set-mongo-pass", help="Set MongoDB password (interactive)")
     
+    # Redis commands
+    cache_pattern_parser = subparsers.add_parser("set-cache-pattern", help="Set Redis cache key pattern")
+    cache_pattern_parser.add_argument("pattern", help="Pattern to match (e.g. '*/api/rates/fx-rates')")
+    
+    subparsers.add_parser("clear-cache", help="Manually clear matching Redis keys")
+
     args = parser.parse_args()
     
     if args.command == "run":
         run_scraper(force=args.force)
+        
+    elif args.command == "email-test":
+        run_email_test()
     
     elif args.command == "test-mongo":
         if test_mongo_connection():
@@ -81,6 +101,15 @@ def main():
                 print("Aborted.")
         except KeyboardInterrupt:
             print("\nAborted.")
+            
+    elif args.command == "set-cache-pattern":
+        db = RatesDatabase()
+        db.set_credential("cache_pattern", args.pattern)
+        print(f"Cache pattern set to: {args.pattern}")
+        
+    elif args.command == "clear-cache":
+        cache = RedisCache()
+        cache.clear_all_matching()
             
     else:
         run_scraper()  # Default behavior

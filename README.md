@@ -14,6 +14,29 @@ An advanced, stealthy web scraper for the **Reserve Bank of Zimbabwe (RBZ)**. It
 - **Secure Credentials**: Credentials (MongoDB, SMTP) are stored locally in an encrypted SQLite database, not in plain text files.
 - **Systemd Integration**: Built-in support for running as a background service on Linux servers.
 
+## Redis Cache Invalidation
+
+The scraper automatically invalidates relevant Redis cache keys after a successful rates update.
+
+**Default Pattern**: `*/api/rates/fx-rates*`
+
+It uses smart invalidation logic:
+-   Clears default endpoints (no query params).
+-   Clears endpoints for "today" (`day=YYYY-MM-DD`).
+-   Clears endpoints where "today" falls within a requested date range (`from=...&to=...`).
+
+### Configuration
+If your API endpoint changes, you can update the pattern:
+```bash
+python3 main.py set-cache-pattern "*/api/new-endpoint"
+```
+To manualy clear the cache:
+```bash
+python3 main.py clear-cache
+```
+
+## License
+
 ## 📂 Project Structure
 
 ```

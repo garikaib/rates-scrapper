@@ -37,15 +37,8 @@ if ! python -c "import playwright; import pymongo; import pymupdf" 2>/dev/null; 
     ./install.sh
 fi
 
-# Parse arguments
-FORCE_FLAG=""
-if [[ "$1" == "--force" || "$1" == "-f" ]]; then
-    FORCE_FLAG="--force"
-    log "Force mode enabled"
-fi
-
 # Run the scraper
-log "Running scraper..."
-python main.py run $FORCE_FLAG
+log "Running..."
+python main.py "$@"
 
 log "Scraper finished."

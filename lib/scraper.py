@@ -17,6 +17,7 @@ from lib.db import RatesDatabase
 from lib.holidays import ZimbabweHolidays
 from lib.mongo import MongoStorage
 from lib.email_notify import EmailNotifier
+from lib.cache import RedisCache
 
 RBZ_HOMEPAGE_URL = "https://www.rbz.co.zw/"
 RBZ_PDF_BASE_URL = "https://www.rbz.co.zw/documents"
@@ -31,6 +32,7 @@ class RBZRateScraper:
         self.holidays = ZimbabweHolidays(self.db)
         self.mongo = MongoStorage(self.db)
         self.email = EmailNotifier(self.db)
+        self.cache = RedisCache(self.db)
         self.session = requests.Session()
         self._playwright = None
         self._browser = None
@@ -334,6 +336,10 @@ class RBZRateScraper:
                     exchange_rates=result.get("exchange_rates"),
                     gold_rates=result.get("gold_rates")
                 )
+                
+                # Invalidate cache
+                print("Invalidating relevant Redis cache keys...")
+                self.cache.invalidate_for_date(today)
         
         self.db.log_scrape_run(today, "gold_rates" in result, "exchange_rates" in result)
         result["status"] = "completed"
