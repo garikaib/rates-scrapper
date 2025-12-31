@@ -94,6 +94,9 @@ ssh "$SERVER" -t << EOF
     ./install.sh --quick
 EOF
 
+echo "Starting service immediately..."
+ssh "$SERVER" "sudo systemctl start rbz-scraper.service"
+
 # Cleanup local package
 rm "$PACKAGE_NAME"
 

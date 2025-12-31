@@ -189,7 +189,7 @@ EOF
 Description=Run RBZ Rates Scraper every 10 minutes during business hours
 
 [Timer]
-OnCalendar=Mon-Fri 08:00..17:00/10
+OnCalendar=Mon-Fri 06:00..19:00/10
 Persistent=true
 
 [Install]

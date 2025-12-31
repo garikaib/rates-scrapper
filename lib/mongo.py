@@ -119,7 +119,7 @@ class MongoStorage:
             print("No exchange rates to update")
             return False
         
-        if not self._db:
+        if self._db is None:
             if not self.connect():
                 return False
         
@@ -169,6 +169,11 @@ class MongoStorage:
             new_record["ZiG_Bid"] = exchange_rates.get("bid")
             new_record["ZiG_Ask"] = exchange_rates.get("ask")
             new_record["ZiG_Mid"] = exchange_rates.get("avg")
+
+            # Set timestamps
+            now = datetime.now()
+            new_record["createdAt"] = now
+            new_record["updatedAt"] = now
             
             print(f"Updated ZiG: Bid={new_record['ZiG_Bid']}, Ask={new_record['ZiG_Ask']}, Mid={new_record['ZiG_Mid']}")
             
